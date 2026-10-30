@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>MNIST Digit Recognizer | Real-Time Canvas</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 30px;
+            margin: 0;
+        }
+        h1 { color: #38bdf8; margin-bottom: 5px; }
+        p { color: #94a3b8; margin-top: 0; margin-bottom: 25px; }
+        .container {
+            display: flex;
+            gap: 30px;
+            background: #1e293b;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            border: 1px solid #334155;
+        }
+        canvas {
+            background-color: #000000;
+            border: 2px solid #38bdf8;
+            border-radius: 8px;
+            cursor: crosshair;
+        }
+        .controls {
+            display: flex;
+            flex-direction: column;
+            width: 250px;
+            justify-content: space-between;
+        }
+        .btn {
+            background-color: #0284c7;
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-bottom: 10px;
+        }
+        .btn:hover { background-color: #0369a1; }
+        .btn-clear { background-color: #ef4444; }
+        .btn-clear:hover { background-color: #dc2626; }
+        .result-box {
+            background: #0f172a;
+            border: 1px solid #334155;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .digit-display {
+            font-size: 54px;
+            font-weight: bold;
+            color: #4ade80;
+            margin: 5px 0;
+        }
+        .confidence { color: #94a3b8; font-size: 14px; }
+    </style>
+</head>
+<body>
+
+    <h1>✏️ Neural Network Digit Recognizer</h1>
+    <p>Draw a digit (0–9) on the canvas to predict in real time</p>
+
+    <div class="container">
+        <div>
+            <canvas id="canvas" width="280" height="280"></canvas>
+        </div>
+
+        <div class="controls">
+            <div>
+                <button class="btn btn-clear" onclick="clearCanvas()">Clear Canvas</button>
+                <button class="btn" onclick="predictDigit()">Predict Digit</button>
+            </div>
+
+            <div class="result-box">
+                <small style="color: #64748b;">PREDICTED DIGIT</small>
+                <div class="digit-display" id="predicted-digit">-</div>
+                <div class="confidence" id="confidence">Confidence: --%</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        let drawing = false;
+
+        // Initialize Canvas Background as Black (like MNIST)
+        ctx.fillStyle = "black";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Drawing properties
+        ctx.lineWidth = 18;
+        ctx.lineCap = "round";
+        ctx.strokeStyle = "white";
+
+        canvas.addEventListener('mousedown', () => drawing = true);
+        canvas.addEventListener('mouseup', () => { drawing = false; ctx.beginPath(); predictDigit(); });
+        canvas.addEventListener('mousemove', draw);
+
+        function draw(e) {
+            if (!drawing) return;
+            const rect = canvas.getBoundingClientRect();
+            ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
+        }
+
+        function clearCanvas() {
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.beginPath();
+            document.getElementById('predicted-digit').innerText = "-";
+            document.getElementById('confidence').innerText = "Confidence: --%";
+        }
+
+        async function predictDigit() {
+            const imageData = canvas.toDataURL('image/png');
+            try {
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image_data: imageData })
+                });
+                const data = await response.json();
+                if (data.predicted_digit !== undefined) {
+                    document.getElementById('predicted-digit').innerText = data.predicted_digit;
+                    document.getElementById('confidence').innerText = `Confidence: ${data.confidence}`;
+                }
+            } catch (err) {
+                console.error("Prediction error:", err);
+            }
+        }
+    </script>
+</body>
+</html>
